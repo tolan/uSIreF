@@ -3,8 +3,6 @@ PHP micro service framework
 
 TODO
     - make TESTS!!!
-    - separate client and server adapter
-    - logging
+    - logging via Observor, error state (exception)
     - UNIX socket connection
-    - documentation
     - POST data

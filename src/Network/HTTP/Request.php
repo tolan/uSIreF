@@ -5,18 +5,64 @@ namespace uSIreF\Network\HTTP;
 use uSIreF\Network\Interfaces\IRequest;
 use uSIreF\Common\Abstracts\AEntity;
 
+use uSIreF\Network\HTTP\Adapter\Connection;
 use uSIreF\Network\HTTP\Request\{Parser, Builder};
 
+/**
+ * This file defines class for HTTP Request message.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Request extends AEntity implements IRequest {
 
-    public $remoteAddr;   // IP address of client, as string
-    public $method;       // HTTP method, e.g. "GET" or "POST"
-    public $requestUri;   // original requested URI, with query string
-    public $uri;          // path component of URI, without query string, after decoding %xx entities
-    public $httpVersion;  // version from the request line, e.g. "HTTP/1.1"
-    public $query   = []; // parsed query string
-    public $headers = []; // associative array of HTTP headers
-    public $data;
+    /**
+     * IP address of client, as string.
+     *
+     * @var string
+     */
+    public $remoteAddr;
+
+    /**
+     * HTTP method, e.g. "GET" or "POST".
+     *
+     * @var string
+     */
+    public $method;
+
+    /**
+     * Original requested URI, with query string.
+     *
+     * @var string
+     */
+    public $requestUri;
+
+    /**
+     * Path component of URI, without query string, after decoding %xx entities.
+     *
+     * @var string
+     */
+    public $uri;
+
+    /**
+     * Version from the request line, e.g. "HTTP/1.1".
+     *
+     * @var string
+     */
+    public $httpVersion;
+
+    /**
+     * Parsed query string.
+     *
+     * @var array
+     */
+    public $query   = [];
+
+    /**
+     * Associative array of HTTP headers.
+     *
+     * @var array
+     */
+    public $headers = [];
 
     /**
      * @var Parser
@@ -28,13 +74,23 @@ class Request extends AEntity implements IRequest {
      */
     private $_builder;
 
+    /**
+     * Construct method.
+     */
     public function __construct() {
         $this->_parser  = new Parser();
         $this->_builder = new Builder();
     }
 
-    public function readSocketInfo($socket): Request {
-        $remoteName = stream_socket_get_name($socket, true);
+    /**
+     * It reads basic information about socket.
+     *
+     * @param Connection $connection Connection instance
+     *
+     * @return Request
+     */
+    public function readSocketInfo(Connection $connection): Request {
+        $remoteName = $connection->getName();
         if ($remoteName) {
             $portPos          = strrpos($remoteName, ':');
             $this->remoteAddr = $portPos ? substr($remoteName, 0, $portPos): $remoteName;
@@ -54,6 +110,11 @@ class Request extends AEntity implements IRequest {
         return $this;
     }
 
+    /**
+     * It builds request message string.
+     *
+     * @return string
+     */
     public function build(): string {
         return $this->_builder->from($this->to())->build();
     }
@@ -85,6 +146,8 @@ class Request extends AEntity implements IRequest {
 
     /*
      * Reads a chunk of a HTTP request from a client socket.
+     *
+     * @return Request
      */
     public function addData(string $data): IRequest {
         $this->_parser->addData($data);

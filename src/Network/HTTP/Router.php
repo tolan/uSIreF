@@ -9,6 +9,11 @@ use uSIreF\Network\HTTP\Worker\Pool;
 use uSIreF\Network\HTTP\Response\Code;
 use uSIreF\Network\Interfaces\{IRouter, IRequest, IResponse};
 
+/**
+ * This file defines class for routing message.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Router implements IRouter {
 
     const NOT_FOUND          = Dispatcher::NOT_FOUND;
@@ -25,6 +30,12 @@ class Router implements IRouter {
      */
     private $_pool;
 
+    /**
+     * Construct method for set route collector and pool.
+     *
+     * @param Closure $collectorFunction Route collector instance
+     * @param Pool    $pool              Worker pool instance
+     */
     public function __construct(Closure $collectorFunction, Pool $pool = null) {
         $options = [
             'routeCollector' => Collector::class
@@ -33,6 +44,14 @@ class Router implements IRouter {
         $this->_pool       = $pool;
     }
 
+    /**
+     * It resolves request message.
+     *
+     * @param IRequest  $request  Request message instance
+     * @param IResponse $response Response message instance
+     *
+     * @return Router
+     */
     public function resolve(IRequest $request, IResponse $response): IRouter {
         try {
             $routeInfo = $this->_dispatcher->dispatch($request->method, $request->uri);
@@ -61,7 +80,16 @@ class Router implements IRouter {
         return $this;
     }
 
-    private function _resolveFound(IRequest $request, IResponse $response, $routeInfo) {
+    /**
+     * It runs resolved callback.
+     *
+     * @param IRequest  $request   Request message instance
+     * @param IResponse $response  Response message instance
+     * @param Closure   $routeInfo Resolved route info
+     *
+     * @return Router
+     */
+    private function _resolveFound(IRequest $request, IResponse $response, $routeInfo): Router {
         if ($routeInfo[1] instanceof Closure) {
             call_user_func_array($routeInfo[1], [$request, $response, $routeInfo]);
         } else {

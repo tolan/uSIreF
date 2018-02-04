@@ -12,17 +12,21 @@
             "email": "mkovar86@gmail.com"
         }
     ],
+    "scripts": {
+       "unit": "cd tests/Unit && ../../vendor/bin/phpunit"
+    },
     "require": {
         "php": ">=7.0.0",
         "nikic/fast-route": "1.2.0",
-        "symfony/process": "4.0.2"
+        "symfony/process": "4.0.4"
     },
     "require-dev": {
-        "phpunit/phpunit": "6.4.4"
+        "phpunit/phpunit": "7.0.0"
     },
     "autoload": {
         "psr-4": {
             "uSIreF\\": "src",
+            "uSIref\\Unit\\": "tests\\Unit",
             "uSIref\\Example\\": "examples"
         }
     }

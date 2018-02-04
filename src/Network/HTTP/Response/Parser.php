@@ -4,36 +4,139 @@ namespace uSIreF\Network\HTTP\Response;
 
 use uSIreF\Common\Abstracts\AEntity;
 
+/**
+ * This file defines class for parsing response message.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Parser extends AEntity {
 
+    /**
+     * These constants define state of reading chunks.
+     */
     const READ_CHUNK_HEADER  = 0;
     const READ_CHUNK_DATA    = 1;
     const READ_CHUNK_TRAILER = 2;
 
+    /**
+     * These constants define state of reading message.
+     */
     const READ_HEADERS  = 0;
     const READ_CONTENT  = 1;
     const READ_COMPLETE = 2;
 
-    public $code;         // HTTP response code "200 OK"
-    public $headers = []; // associative array of HTTP headers
-    public $message;      // Response message
-    public $httpVersion;  // version from the request line, e.g. "HTTP/1.1"
+    /**
+     * HTTP response code "200 OK".
+     *
+     * @var int
+     */
+    public $code;
 
-    private $_lcHeaders = []; // associative array of HTTP headers, with header names in lowercase
-    private $_requestLine;    // The HTTP response line exactly as it came from the client
+    /**
+     * Associative array of HTTP headers.
+     *
+     * @var array
+     */
+    public $headers = [];
 
-    // internal fields to track the state of reading the HTTP request
-    private $_state             = self::READ_HEADERS;
-    private $_headerBuffer      = '';
-    private $_contentLength     = 0;
+    /**
+     * Response message.
+     *
+     * @var string
+     */
+    public $message;
+
+    /**
+     * Version from the request line, e.g. "HTTP/1.1".
+     *
+     * @var string
+     */
+    public $httpVersion;
+
+    /**
+     * Associative array of HTTP headers, with header names in lowercase.
+     *
+     * @var array
+     */
+    private $_lcHeaders = [];
+
+    /**
+     * The HTTP response line exactly as it came from the client.
+     *
+     * @var string
+     */
+    private $_requestLine;
+
+    /**
+     * Reading state.
+     *
+     * @var string
+     */
+    private $_state = self::READ_HEADERS;
+
+    /**
+     * Header buffer for keeping data between reading.
+     *
+     * @var string
+     */
+    private $_headerBuffer = '';
+
+    /**
+     * Whole length of content.
+     *
+     * @var int
+     */
+    private $_contentLength = 0;
+
+    /**
+     * Already read length of content.
+     *
+     * @var int
+     */
     private $_contentLengthRead = 0;
 
-    private $_isChunked             = false;
-    private $_chunkState            = self::READ_CHUNK_HEADER;
-    private $_chunkLengthRemaining  = 0;
-    private $_chunkTrailerRemaining = 0;
-    private $_chunkHeaderBuffer     = '';
+    /**
+     * Flag for chunked message.
+     *
+     * @var bool
+     */
+    private $_isChunked = false;
 
+    /**
+     * State of chunk.
+     *
+     * @var string
+     */
+    private $_chunkState = self::READ_CHUNK_HEADER;
+
+    /**
+     * Remaining length of chunk.
+     *
+     * @var int
+     */
+    private $_chunkLengthRemaining = 0;
+
+    /**
+     * Remaining trail of chunk.
+     *
+     * @var int
+     */
+    private $_chunkTrailerRemaining = 0;
+
+    /**
+     * Buffer for chunked header.
+     *
+     * @var string
+     */
+    private $_chunkHeaderBuffer = '';
+
+    /**
+     * Add received data to current state and resolve it.
+     *
+     * @param string $data Received data
+     *
+     * @return Parser
+     */
     public function addData(string $data): Parser {
         switch ($this->_state) {
             case self::READ_HEADERS:
@@ -56,10 +159,22 @@ class Parser extends AEntity {
         return $this;
     }
 
+    /**
+     * Returns decoded header or null when it is not defined.
+     *
+     * @param string $name Header identificator
+     *
+     * @return string|null
+     */
     public function getHeader(string $name): ?string {
         return $this->_lcHeaders[strtolower($name)] ?? null;
     }
 
+    /**
+     * Clean up of current state.
+     *
+     * @return Parser
+     */
     public function cleanup(): Parser {
         $this->code    = null;
         $this->headers = [];
@@ -68,10 +183,22 @@ class Parser extends AEntity {
         return $this;
     }
 
+    /**
+     * Returns that the reading of received data is completed.
+     *
+     * @return bool
+     */
     public function isCompleted(): bool {
         return $this->_state === self::READ_COMPLETE;
     }
 
+    /**
+     * Reads header from received data.
+     *
+     * @param string $data Received data
+     *
+     * @return Parser
+     */
     private function _readHeaders(&$data) {
         $this->_headerBuffer .= $data;
         $endHeaders           = strpos($this->_headerBuffer, "\r\n\r\n", 4);
@@ -83,12 +210,13 @@ class Parser extends AEntity {
         $endReq             = strpos($this->_headerBuffer, "\r\n");
         $this->_requestLine = substr($this->_headerBuffer, 0, $endReq);
 
-        list($this->httpVersion, $this->code) = explode(' ', $this->_requestLine, 3);
+        list($this->httpVersion, $code) = explode(' ', $this->_requestLine, 3);
+        $this->code = (int)$code;
 
         // parse HTTP headers
         $startHeaders  = $endReq + 2;
         $headersStr    = substr($this->_headerBuffer, $startHeaders, $endHeaders - $startHeaders);
-        $this->headers = $this->_parseHeaderString($headersStr);
+        $this->headers = $this->_readHeaderString($headersStr);
 
         $this->_lcHeaders = [];
         foreach ($this->headers as $key => $value) {
@@ -113,6 +241,13 @@ class Parser extends AEntity {
         return $this;
     }
 
+    /**
+     * Reads chunked data from received data.
+     *
+     * @param string $data Received data
+     *
+     * @return Parser
+     */
     private function _readChunkedData(&$data) {
         while (isset($data[0])) { // keep processing chunks until we run out of data
             switch ($this->_chunkState) {
@@ -177,7 +312,14 @@ class Parser extends AEntity {
         return $this;
     }
 
-    private function _parseHeaderString(string $headersStr): array {
+    /**
+     * Reads headers from received headers string.
+     *
+     * @param string $headersStr Headers string
+     *
+     * @return array
+     */
+    private function _readHeaderString(string $headersStr): array {
         $headersArr = explode("\r\n", $headersStr);
         $headers    = [];
         foreach ($headersArr as $headerStr) {

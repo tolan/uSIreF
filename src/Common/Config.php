@@ -19,7 +19,7 @@ class Config {
     /**
      * Construct method for init default values.
      */
-    private function __construct() {
+    public function __construct() {
         $this->set('root', dirname(__DIR__, 2));
     }
 
@@ -29,9 +29,9 @@ class Config {
      * @param string $name      Method name
      * @param array  $arguments Input data
      *
-     * @throws Exception Throws when called function doesn't exists.
-     *
      * @return mixed
+     *
+     * @throws Exception Throws when called function doesn't exists.
      */
     public function __call($name, $arguments) {
         $method   = substr($name, 0, 3);

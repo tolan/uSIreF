@@ -5,9 +5,14 @@ namespace uSIreF\Network\HTTP\Worker;
 use uSIreF\Common\Abstracts\AEntity;
 use uSIreF\Common\Utils\JSON;
 use uSIreF\Network\Client;
-use uSIreF\Network\HTTP\{Request, Response, Adapter, Method};
+use uSIreF\Network\HTTP\{Request, Response, Adapter\Adapter, Method};
 use Symfony\Component\Process\PhpProcess;
 
+/**
+ * This file defines class for Worker. It provides sending message to sub-process via client.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Worker extends AEntity {
 
     const STATUS_READY   = 'ready';
@@ -45,25 +50,45 @@ class Worker extends AEntity {
      */
     private $_client;
 
+    /**
+     * Construct method for set adapter.
+     *
+     * @param Adapter $adapter Adapter combine instance
+     */
     public function __construct(Adapter $adapter) {
         $this->_status  = self::STATUS_READY;
-        $this->_client  = new Client($adapter);
+        $this->_client  = new Client($adapter->getClient());
         $this->_process = new PhpProcess(file_get_contents(__DIR__.'/Template.php'), dirname(__DIR__, 4));
         $this->_process
-            ->setEnv(['adapter' => JSON::encode(serialize($adapter))])
+            ->setEnv(['adapter' => JSON::encode(serialize($adapter->getServer()))])
             ->start();
     }
 
+    /**
+     * Returns count of calls.
+     *
+     * @return int
+     */
     public function getCalls(): int {
         return $this->_calls;
     }
 
+    /**
+     * Returns current state of worker.
+     *
+     * @return string
+     */
     public function getStatus(): string {
         $this->_update();
         return !empty($this->_callBuffer) ? self::STATUS_RUNNING : $this->_status;
     }
 
-    public function restart(): Worker {
+    /**
+     * It resets worker.
+     *
+     * @return Worker
+     */
+    public function reset(): Worker {
         if ($this->_status === self::STATUS_DONE) {
             $this->_status     = self::STATUS_READY;
             $this->_callBuffer = null;
@@ -82,6 +107,17 @@ class Worker extends AEntity {
         return $this;
     }
 
+    /**
+     * It sends request message to controller and method in client.
+     *
+     * @param string  $controller Controller classname
+     * @param string  $method     Controller method
+     * @param Request $request    Request message
+     *
+     * @return Worker
+     *
+     * @throws Exception
+     */
     public function call(string $controller, string $method, Request $request): Worker {
         if ($this->_status === self::STATUS_RUNNING) {
             throw new Exception('Worker is still running.');
@@ -99,12 +135,22 @@ class Worker extends AEntity {
         return $this;
     }
 
+    /**
+     * It returns output string from worker or null if message is not completed.
+     *
+     * @return string|null
+     */
     public function getOutput(): ?string {
         $this->_update();
         return $this->_output ? $this->_output->render() : null;
     }
 
-    private function _update() {
+    /**
+     * It updates current status and calls corresponding method.
+     *
+     * @return Worker
+     */
+    private function _update(): Worker {
         if ($this->_status === self::STATUS_READY && $this->_callBuffer) {
             $this->_status = self::STATUS_RUNNING;
             $this->_send($this->_callBuffer);
@@ -117,15 +163,29 @@ class Worker extends AEntity {
 
         if ($this->_client->getState() === Client::STATE_ERROR || $this->_process->isTerminated()) {
             $this->_status = self::STATUS_ERROR;
-            $this->restart();
+            $this->reset();
         }
+
+        return $this;
     }
 
+    /**
+     * It returns response message from client.
+     *
+     * @return Response|null
+     */
     private function _read(): ?Response {
         return $this->_client->getState() === Client::STATE_DONE ? $this->_client->getOutput() : null;
     }
 
-    private function _send($params = []): Worker {
+    /**
+     * It sends data to client.
+     *
+     * @param array $params Message parameters
+     *
+     * @return Worker
+     */
+    private function _send(array $params = []): Worker {
         $request         = new Request();
         $request->method = Method::GET;
         $request->uri    = '/run';

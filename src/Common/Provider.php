@@ -5,7 +5,7 @@ namespace uSIreF\Common;
 use ReflectionClass;
 
 /**
- * This file defines class for providing instance and collect them into one place.
+ * This file defines class for providing instance (include all dependencies) and collect them into one place.
  *
  * @author Martin Kovar <mkovar86@gmail.com>
  */

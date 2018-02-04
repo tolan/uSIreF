@@ -53,6 +53,11 @@ class Code {
     const GATEWAY_TIMEOUT_504                 = 504;
     const HTTP_VERSION_NOT_SUPPORTED_505      = 505;
 
+    /**
+     * Map for status code and message.
+     *
+     * @var array
+     */
     private static $_messages = [
         self::CONTINUE_100                        => 'Continue',
         self::SWITCHING_PROTOCOLS_101             => 'Switching Protocols',
@@ -96,6 +101,15 @@ class Code {
         self::HTTP_VERSION_NOT_SUPPORTED_505      => 'HTTP Version Not Supported',
     ];
 
+    /**
+     * Returns message by given code.
+     *
+     * @param int $code Response code
+     *
+     * @return string
+     *
+     * @throws Exception
+     */
     public static function getMessage(int $code): string {
         if (!array_key_exists($code, self::$_messages)) {
             throw new Exception('Code "'.$code.'" is not supported.');
@@ -104,7 +118,15 @@ class Code {
         return self::$_messages[$code];
     }
 
-    public static function renderStatus(int $code, string $statusMsg = null) {
+    /**
+     * Returns status message and HTTP version by given response code if status message is not defined.
+     *
+     * @param int    $code      Response code
+     * @param string $statusMsg Status message
+     *
+     * @return string
+     */
+    public static function renderStatus(int $code, string $statusMsg = null): string {
         // Per RFC2616 6.1.1 we pass on a status message from the provider if
         // provided, otherwise we use the standard message for that code.
         if (empty($statusMsg)) {

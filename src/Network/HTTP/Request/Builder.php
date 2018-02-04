@@ -4,26 +4,81 @@ namespace uSIreF\Network\HTTP\Request;
 
 use uSIreF\Common\Abstracts\AEntity;
 
+/**
+ * This file defines class for build request message.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Builder extends AEntity {
 
-    public $method;                   // HTTP request method, e.g. "GET" or "POST"
-    public $uri;                      // path component of URI, without query string, after decoding %xx entities
-    public $httpVersion = 'HTTP/1.1'; // version from the request line, e.g. "HTTP/1.1"
-    public $query       = [];         // parsed query string
-    public $headers     = [];         // associative array of HTTP headers
-    public $data        = null;       // HTTP response messaage
+    /**
+     * HTTP request method, e.g. "GET" or "POST".
+     *
+     * @var string
+     */
+    public $method;
 
-    public function build() {
+    /**
+     * path component of URI, without query string, after decoding %xx entities.
+     *
+     * @var string
+     */
+    public $uri;
+
+    /**
+     * version from the request line, e.g. "HTTP/1.1".
+     *
+     * @var string
+     */
+    public $httpVersion = 'HTTP/1.1';
+
+    /**
+     * Parsed query string.
+     *
+     * @var array
+     */
+    public $query       = [];
+
+    /**
+     * Associative array of HTTP headers.
+     *
+     * @var array
+     */
+    public $headers     = [];
+
+    /**
+     * HTTP request body.
+     *
+     * @var string
+     */
+    public $data;
+
+    /**
+     * Returns built request message.
+     *
+     * @return string
+     */
+    public function build(): string {
         return $this->method.' '.$this->_buildUri().' '.$this->httpVersion."\r\n"
-            .$this->_renderHeaders()
+            .$this->_buildHeaders()
             .$this->_buildBody();
     }
 
-    private function _buildUri() {
+    /**
+     * Build uri string with query.
+     *
+     * @return string
+     */
+    private function _buildUri(): string {
         return !empty($this->query) ? $this->uri.'?'.http_build_query($this->query) : $this->uri;
     }
 
-    private function _renderHeaders(): string {
+    /**
+     * Build request headers.
+     *
+     * @return string
+     */
+    private function _buildHeaders(): string {
         $result = '';
         foreach ($this->headers as $name => $value) {
             $result .= "$name: $value\r\n";
@@ -34,6 +89,11 @@ class Builder extends AEntity {
         return $result;
     }
 
+    /**
+     * Build request body.
+     *
+     * @return string
+     */
     private function _buildBody(): string {
         // TODO build POST data body
         return '';

@@ -1,11 +1,17 @@
 <?php
 
+/**
+ * This file defines sub-process template for worker.
+ *
+ * It creates new server instance with listening on given adapter (serialized and passed by env).
+ */
+
 require getcwd().'/vendor/autoload.php';
 
 use uSIreF\Common\Provider;
 use uSIreF\Common\Utils\JSON;
 use uSIreF\Network\Server;
-use uSIreF\Network\HTTP\{Router, Collector, Request, Response, Response\Code};
+use uSIreF\Network\HTTP\{Router, Collector, Request, Response};
 
 try {
     function getCpuUsage() {
@@ -31,7 +37,7 @@ try {
             call_user_func_array([$controller, $method], [$params['request'], $response]);
 
             if (empty($response->message)) {
-                $response->message = Code::getMessage($response->code ?? Code::OK_200);
+                $response->message = Response\Code::getMessage($response->code ?? Response\Code::OK_200);
             }
         });
     });
@@ -53,6 +59,5 @@ try {
 
 } catch (\Throwable $e) {
     echo $e->getMessage()."\n".$e->getTraceAsString();
+    exit(1);
 }
-
-exit(1);

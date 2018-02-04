@@ -2,15 +2,20 @@
 
 namespace uSIreF\Network;
 
-use uSIreF\Network\Interfaces\{IServer, ISocket, IAdapter, IRouter};
+use uSIreF\Network\Interfaces\{IServer, IMessage, IRouter, Adapter};
 use \Closure;
 
+/**
+ * This file defines class for server.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
 class Server implements IServer {
 
     const CONNECTION_TIMEOUT = 30 * 1000;
 
     /**
-     * @var IAdapter
+     * @var Adapter\IServer
      */
     private $_adapter;
 
@@ -20,46 +25,66 @@ class Server implements IServer {
     private $_router;
 
     /**
-     * @var [ISocket]
+     * @var [IMessage]
      */
-    private $_sockets = [];
+    private $_messages = [];
 
-    public function __construct(IAdapter $adapter, IRouter $router) {
+    /**
+     * Construct method for set server adapter and router.
+     *
+     * @param Adapter\IServer $adapter Server adapter instance
+     * @param IRouter         $router  Router instance
+     */
+    public function __construct(Adapter\IServer $adapter, IRouter $router) {
         $this->_adapter = $adapter;
         $this->_router  = $router;
     }
 
+    /**
+     * Destruct method disconnect all messages.
+     *
+     * @return void
+     */
     public function __destruct() {
-        foreach ($this->_sockets as $socket) {
-            $this->_adapter->close($socket);
+        foreach ($this->_messages as $message) { /* @var $message IMessage */
+            $message->getConnection()->close();
         }
     }
 
+    /**
+     * Starts and runs server listening forever.
+     *
+     * @param Closure $callback Callback wich is called in each iteration (optional)
+     *
+     * @return IServer
+     */
     public function run(Closure $callback = null): IServer {
-        $callback = $callback ?? function() { return true; };
-        $this->_adapter->startServer();
+        $this->_adapter->start();
+        $condition = $callback ?? function() {
+            return true;
+        };
 
-        while ($callback($this)) {
-            $timeout = empty($this->_sockets) ? 100 : 1;
-            if (($socket = $this->_adapter->select($timeout))) {
-                $this->_sockets[$socket->getObjectId()] = $socket;
+        while ($condition($this)) {
+            $timeout = empty($this->_messages) ? 100 : 1;
+            if (($message = $this->_adapter->select($timeout))) {
+                $this->_messages[$message->getObjectId()] = $message;
             }
 
-            foreach ($this->_sockets as $socket) {
-                if ($socket->getRequest()->isReadCompleted() === false) {
-                    $this->_read($socket);
+            foreach ($this->_messages as $message) {
+                if ($message->getRequest()->isReadCompleted() === false) {
+                    $this->_read($message);
                 }
             }
 
-            foreach ($this->_sockets as $socket) {
-                if ($socket->getResponse()->isReadCompleted() === true) {
-                    $this->_write($socket);
+            foreach ($this->_messages as $message) {
+                if ($message->getResponse()->isReadCompleted() === true) {
+                    $this->_write($message);
                 }
             }
 
-            foreach ($this->_sockets as $socket) {
-                if ($socket->getTimeout() > self::CONNECTION_TIMEOUT) {
-                    $this->_close($socket);
+            foreach ($this->_messages as $message) {
+                if ($message->getTimeout() > self::CONNECTION_TIMEOUT) {
+                    $this->_close($message);
                 }
             }
         }
@@ -67,31 +92,50 @@ class Server implements IServer {
         return $this;
     }
 
-    private function _read(ISocket $socket): Server {
-        $data = $this->_adapter->read($socket);
+    /**
+     * It reads request message.
+     *
+     * @param IMessage $message Message instance
+     *
+     * @return Server
+     */
+    private function _read(IMessage $message): Server {
+        $data = $message->getConnection()->read();
         if (empty($data)) {
-            $this->_close($socket);
-        } elseif ($socket->getRequest()->addData($data)->isReadCompleted()) {
-            $this->_router->resolve($socket->getRequest(), $socket->getResponse());
+            $this->_close($message);
+        } elseif ($message->getRequest()->addData($data)->isReadCompleted()) {
+            $this->_router->resolve($message->getRequest(), $message->getResponse());
         }
 
         return $this;
     }
 
-    private function _write(ISocket $socket): Server {
-        $response = $socket->getResponse();
-        if ($this->_adapter->write($socket, $response->render()) && $response->isWriteCompleted()) {
-            $this->_close($socket);
+    /**
+     * It writes response message.
+     *
+     * @param IMessage $message Message instance
+     *
+     * @return Server
+     */
+    private function _write(IMessage $message): Server {
+        $response = $message->getResponse();
+        if ($message->getConnection()->write($response->render()) && $response->isWriteCompleted()) {
+            $this->_close($message);
         }
 
         return $this;
     }
 
-    private function _close(ISocket $socket): Server {
-        $this->_adapter->close($socket);
-        unset($this->_sockets[$socket->getObjectId()]);
-        $socket->getRequest()->cleanup();
-        $socket->getResponse()->cleanup();
+    /**
+     * It closes message.
+     *
+     * @param IMessage $message Message instance
+     *
+     * @return Server
+     */
+    private function _close(IMessage $message): Server {
+        unset($this->_messages[$message->getObjectId()]);
+        $message->cleanup();
 
         return $this;
     }

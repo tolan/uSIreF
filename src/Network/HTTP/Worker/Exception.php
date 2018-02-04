@@ -2,8 +2,13 @@
 
 namespace uSIreF\Network\HTTP\Worker;
 
-use uSIreF\Common;
+use uSIreF\Network\HTTP;
 
-class Exception extends Common\Exception {
+/**
+ * This file defines class for exception from Worker.
+ *
+ * @author Martin Kovar <mkovar86@gmail.com>
+ */
+class Exception extends HTTP\Exception {
 
 }
